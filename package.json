@@ -18,7 +18,7 @@
     "merge",
     "merger"
   ],
-  "author": "kota65535 <kota65535@gmail.com>",
+  "author": "Fúlvio Carvalhido <inluxc@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "commander": "11.1.0",
@@ -40,5 +40,8 @@
     "mocha": "10.3.0",
     "nyc": "15.1.0",
     "prettier": "3.2.5"
-  }
+  },
+  "engines": {
+		"node": "22"
+	}
 }
