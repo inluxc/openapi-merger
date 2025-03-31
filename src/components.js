@@ -1,10 +1,10 @@
 "use strict";
 
-const Path = require("path");
-const { readYAML } = require("./yaml");
-const { download } = require("./http");
-const { sliceObject, parseUrl } = require("./util");
-const log = require("loglevel");
+import { basename, extname } from "path";
+import { readYAML } from "./yaml";
+import { download } from "./http";
+import { sliceObject, parseUrl } from "./util";
+import { warn } from "loglevel";
 
 class Component {
   constructor(type, name, content, url) {
@@ -89,7 +89,7 @@ class ComponentNameResolver {
     const nameToCmps = {};
     for (const c of components) {
       const { path, hash } = parseUrl(c.url);
-      const name = hash ? Path.basename(hash) : Path.basename(path, Path.extname(path));
+      const name = hash ? basename(hash) : basename(path, extname(path));
       const key = `${name},${c.type}`;
       if (nameToCmps[key]) {
         nameToCmps[key].push(c);
@@ -107,7 +107,7 @@ class ComponentNameResolver {
         for (let i = 0; i < cmps.length; i++) {
           const resolved = `${name}${i + 1}`;
           cToName[cmps[i].url] = resolved;
-          log.warn(`conflicted component name "${name}" resolved to "${resolved}". url=${cmps[i].url}`);
+          warn(`conflicted component name "${name}" resolved to "${resolved}". url=${cmps[i].url}`);
         }
       }
     }
@@ -123,7 +123,7 @@ function strCmp(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-module.exports = {
+export default {
   ComponentManager,
   ComponentNameResolver,
 };

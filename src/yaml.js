@@ -1,33 +1,33 @@
 "use strict";
 
-const path = require("path");
-const fs = require("fs");
-const yaml = require("js-yaml");
-const log = require("loglevel");
+import { dirname } from "path";
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { load, dump as _dump } from "js-yaml";
+import { info } from "loglevel";
 
 function loadYAML(str) {
-  return yaml.load(str);
+  return load(str);
 }
 
 function readYAML(filePath) {
-  const str = "" + fs.readFileSync(filePath, "utf8");
-  return yaml.load(str);
+  const str = "" + readFileSync(filePath, "utf8");
+  return load(str);
 }
 
 function writeYAML(doc, filePath) {
-  const dump = yaml.dump(doc, { lineWidth: 1000 });
+  const dump = _dump(doc, { lineWidth: 1000 });
   if (filePath) {
-    const outputDir = path.dirname(filePath);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    const outputDir = dirname(filePath);
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
     }
-    fs.writeFileSync(filePath, dump);
+    writeFileSync(filePath, dump);
   } else {
-    log.info(dump);
+    info(dump);
   }
 }
 
-module.exports = {
+export {
   readYAML,
   writeYAML,
   loadYAML,

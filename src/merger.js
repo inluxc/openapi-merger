@@ -1,23 +1,15 @@
 "use strict";
 
-const Path = require("path");
-const Url = require("url");
-const Glob = require("glob");
-const _ = require("lodash");
-const { readYAML } = require("./yaml");
-const { getRefType, shouldInclude } = require("./ref");
-const { download } = require("./http");
-const {
-  sliceObject,
-  parseUrl,
-  filterObject,
-  appendObjectKeys,
-  prependObjectKeys,
-  mergeOrOverwrite,
-  IncludedArray,
-} = require("./util");
-const { ComponentManager, ComponentNameResolver } = require("./components");
-const log = require("loglevel");
+import { resolve, dirname, relative, posix, basename as _basename, extname } from "path";
+import { resolve as _resolve } from "url";
+import { sync } from "glob";
+import { merge as _merge, isObject, isArray } from "lodash";
+import { readYAML } from "./yaml";
+import { getRefType, shouldInclude } from "./ref";
+import { download } from "./http";
+import { sliceObject, parseUrl, filterObject, appendObjectKeys, prependObjectKeys, mergeOrOverwrite, IncludedArray } from "./util";
+import { ComponentManager, ComponentNameResolver } from "./components";
+import { debug, warn } from "loglevel";
 
 class Merger {
   static INCLUDE_PATTERN = /^\$include(#\w+?)?(\.\w+?)?$/;
@@ -34,8 +26,8 @@ class Merger {
    * @returns merged OpenAPI object
    */
   merge = async (doc, docPath) => {
-    docPath = Path.resolve(process.cwd(), docPath);
-    this.baseDir = Path.dirname(docPath);
+    docPath = resolve(process.cwd(), docPath);
+    this.baseDir = dirname(docPath);
 
     // convert to posix style path.
     // this path works with fs module like a charm on both windows and unix.
@@ -51,7 +43,7 @@ class Merger {
     // 2nd merge: merge them all
     this.manager = new ComponentManager(nameResolver);
     doc = await this.mergeRefs(doc, docPath, "$");
-    doc.components = _.merge(doc.components, this.manager.getComponentsSection());
+    doc.components = _merge(doc.components, this.manager.getComponentsSection());
     return doc;
   };
 
@@ -63,10 +55,10 @@ class Merger {
    * @returns {Promise<*[]|*>} a merged object or array
    */
   mergeRefs = async (obj, file, jsonPath) => {
-    if (!_.isObject(obj)) {
+    if (!isObject(obj)) {
       return obj;
     }
-    let ret = _.isArray(obj) ? [] : {};
+    let ret = isArray(obj) ? [] : {};
     for (const [key, val] of Object.entries(obj)) {
       if (this.isRef(key, jsonPath)) {
         await this.handleRef(ret, key, val, file, jsonPath);
@@ -76,7 +68,7 @@ class Merger {
         // go recursively
         const merged = await this.mergeRefs(val, file, `${jsonPath}.${key}`);
         // merge arrays or objects according their type
-        if (merged instanceof IncludedArray && _.isArray(ret)) {
+        if (merged instanceof IncludedArray && isArray(ret)) {
           ret = mergeOrOverwrite(ret, merged);
         } else {
           ret[key] = mergeOrOverwrite(ret[key], merged);
@@ -99,7 +91,7 @@ class Merger {
    * @param jsonPath a JSON path for accessing the target object
    */
   handleRef = async (obj, key, val, file, jsonPath) => {
-    log.debug(`ref    : ${jsonPath} file=${Path.relative(this.baseDir, file)}`);
+    debug(`ref    : ${jsonPath} file=${relative(this.baseDir, file)}`);
 
     obj[key] = mergeOrOverwrite(obj[key], val);
 
@@ -132,9 +124,9 @@ class Merger {
       // remote ref
       let target;
       if (pFile.isHttp) {
-        target = Url.resolve(Path.dirname(pFile.hrefWoHash) + "/", val);
+        target = _resolve(dirname(pFile.hrefWoHash) + "/", val);
       } else {
-        target = Path.posix.join(Path.posix.dirname(pFile.hrefWoHash), val);
+        target = posix.join(posix.dirname(pFile.hrefWoHash), val);
       }
       const parsedTarget = parseUrl(target);
       cmpExists = this.manager.exists(target);
@@ -162,7 +154,7 @@ class Merger {
    * @returns {Promise<*>} a result object or array
    */
   handleInclude = async (obj, key, val, file, jsonPath) => {
-    log.debug(`include: ${jsonPath} file=${Path.relative(this.baseDir, file)}`);
+    debug(`include: ${jsonPath} file=${relative(this.baseDir, file)}`);
 
     obj[key] = mergeOrOverwrite(obj[key], val);
 
@@ -186,9 +178,9 @@ class Merger {
       // remote ref
       let target;
       if (pFile.isHttp) {
-        target = Url.resolve(Path.dirname(pFile.hrefWoHash) + "/", val);
+        target = _resolve(dirname(pFile.hrefWoHash) + "/", val);
       } else {
-        target = Path.posix.join(Path.posix.dirname(pFile.hrefWoHash), val);
+        target = posix.join(posix.dirname(pFile.hrefWoHash), val);
       }
       const parsedTarget = parseUrl(target);
       if (parsedTarget.isHttp) {
@@ -197,12 +189,12 @@ class Merger {
         // handle glob pattern
         content = {};
         if (parsedTarget.hrefWoHash.includes("*")) {
-          const matchedFiles = Glob.sync(parsedTarget.hrefWoHash).map((p) =>
-            Path.relative(Path.dirname(pFile.hrefWoHash), p),
+          const matchedFiles = sync(parsedTarget.hrefWoHash).map((p) =>
+            relative(dirname(pFile.hrefWoHash), p),
           );
           // include multiple files
           for (const mf of matchedFiles) {
-            const basename = Path.basename(mf, Path.extname(mf));
+            const basename = _basename(mf, extname(mf));
             content[basename] = await this.handleInclude({ [key]: mf }, key, mf, file, `${jsonPath}.${basename}`);
           }
         } else {
@@ -214,8 +206,8 @@ class Merger {
     }
     const sliced = sliceObject(content, pRef.hash);
     const merged = await this.mergeRefs(sliced, nextFile, jsonPath);
-    if (_.isArray(merged)) {
-      if (_.isArray(obj)) {
+    if (isArray(merged)) {
+      if (isArray(obj)) {
         // merge array
         obj = obj.concat(merged);
       } else if (Object.keys(obj).length === 1) {
@@ -227,7 +219,7 @@ class Merger {
     } else {
       // merge object
       const processed = processInclude(key, merged, this.config);
-      _.merge(obj, processed);
+      _merge(obj, processed);
       delete obj[key];
     }
     return obj;
@@ -241,7 +233,7 @@ function processInclude(key, obj, config) {
   }
   const clazzConfig = config.include[clazz];
   if (!clazzConfig) {
-    log.warn(`$include classname '${clazz} specified, but no configuration found.`);
+    warn(`$include classname '${clazz} specified, but no configuration found.`);
     return obj;
   }
   obj = filterObject(obj, clazzConfig.filter);
@@ -256,4 +248,4 @@ function getIncludeClass(key) {
   return pattern ? pattern.substr(1) : null;
 }
 
-module.exports = Merger;
+export default Merger;

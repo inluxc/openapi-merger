@@ -1,8 +1,8 @@
 "use strict";
 
-const Url = require("url");
-const _ = require("lodash");
-const deepmerge = require("deepmerge");
+import { parse } from "url";
+import { isObject } from "lodash";
+import deepmerge from "deepmerge";
 
 function sliceObject(obj, hash) {
   if (!hash) {
@@ -27,7 +27,7 @@ function sliceObject(obj, hash) {
 
 function parseUrl(url) {
   // this converts to posix path (separated by '/') if windows path (separated by '\') is given
-  const ret = Url.parse(url);
+  const ret = parse(url);
   ret.isLocal = !ret.path && ret.hash;
   ret.isHttp = ret.protocol && ret.protocol.match(/^(http|https):/);
   if (ret.hash) {
@@ -100,7 +100,7 @@ function escapeJsonPointer(str) {
 }
 
 function mergeOrOverwrite(v1, v2) {
-  if (_.isObject(v1) && _.isObject(v2)) {
+  if (isObject(v1) && isObject(v2)) {
     return deepmerge(v1, v2);
   } else {
     return v2;
@@ -110,7 +110,7 @@ function mergeOrOverwrite(v1, v2) {
 // Special class to distinguish $include-ed array and normal one
 class IncludedArray extends Array {}
 
-module.exports = {
+export default {
   sliceObject,
   parseUrl,
   filterObject,

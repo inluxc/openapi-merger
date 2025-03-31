@@ -1,19 +1,17 @@
 "use strict";
 
-const yaml = require("./yaml");
-const Merger = require("./merger");
+import { readYAML, writeYAML } from "./yaml";
+import Merger from "./merger";
 
-async function main(params) {
-  let doc = await yaml.readYAML(params.input);
+export default async function merger(params) {
+  let doc = await readYAML(params.input);
   let config = {};
   if (params.config) {
-    config = await yaml.readYAML(params.config);
+    config = await readYAML(params.config);
   }
 
   const merger = new Merger(config);
   doc = await merger.merge(doc, params.input);
 
-  yaml.writeYAML(doc, params.output);
+  writeYAML(doc, params.output);
 }
-
-module.exports = main;

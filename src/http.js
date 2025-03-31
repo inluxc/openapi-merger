@@ -1,9 +1,9 @@
 "use strict";
 
-const fetch = require("node-fetch");
-const _ = require("lodash");
-const { loadYAML } = require("./yaml");
-const log = require("loglevel");
+import fetch from "node-fetch";
+import { cloneDeep } from "lodash";
+import { loadYAML } from "./yaml";
+import { warn, error } from "loglevel";
 
 const cache = {};
 
@@ -14,19 +14,19 @@ const cache = {};
  */
 async function download(url) {
   if (cache[url]) {
-    return _.cloneDeep(cache[url]);
+    return cloneDeep(cache[url]);
   }
 
-  log.warn(`fetching: ${url}`);
+  warn(`fetching: ${url}`);
   let res;
   try {
     res = await fetch(url);
   } catch (e) {
-    log.error(`Failed to fetch: ${url}`);
+    error(`Failed to fetch: ${url}`);
     return {};
   }
   if (!res.ok) {
-    log.error(`${res.status} returned: ${url}`);
+    error(`${res.status} returned: ${url}`);
     return {};
   }
 
@@ -37,16 +37,16 @@ async function download(url) {
   } else if (url.match(/\.json$/)) {
     doc = JSON.parse(body);
   } else {
-    log.warn(`Cannot determine the file type: ${url}`);
+    warn(`Cannot determine the file type: ${url}`);
     // assume YAML for now
     doc = loadYAML(body);
   }
 
   cache[url] = doc;
 
-  return _.cloneDeep(doc);
+  return cloneDeep(doc);
 }
 
-module.exports = {
+export default {
   download,
 };
